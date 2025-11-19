@@ -1,70 +1,152 @@
-# Getting Started with Create React App
+# Budget Tracker Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern React frontend for the Budget Tracker application with beautiful charts and intuitive user interface.
 
-## Available Scripts
+## 🚀 Live Demo
+[https://budget-tracker-frontend-puce.vercel.app](https://budget-tracker-frontend-puce.vercel.app)
 
-In the project directory, you can run:
+## ✨ Features
+- **User Authentication**: Secure login and registration system
+- **Dashboard**: Interactive charts showing budget vs expenses, category breakdown, and spending trends
+- **Transaction Management**: Add, edit, delete, and filter transactions
+- **Budget Tracking**: Set monthly budgets and monitor spending
+- **Responsive Design**: Works perfectly on desktop, tablet, and mobile devices
+- **Real-time Updates**: Instant data synchronization with backend
 
-### `npm start`
+## 🛠️ Technology Stack
+- **React 18** - Modern frontend framework
+- **React Router DOM** - Client-side routing
+- **Axios** - HTTP client for API calls
+- **D3.js** - Interactive data visualizations
+- **CSS3** - Custom styling with responsive design
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## 📦 Installation
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Prerequisites
+- Node.js 16+ installed
+- Backend API running (see backend repository)
 
-### `npm test`
+### Setup
+1. Clone the repository:
+```bash
+git clone https://github.com/gautamyash/budget-tracker-frontend.git
+cd budget-tracker-frontend
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+2. Install dependencies:
+```bash
+npm install
+```
 
-### `npm run build`
+3. Set up environment variables:
+Create a `.env` file in the root directory:
+```env
+REACT_APP_API_URL=http://localhost:5000/api
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+4. Start the development server:
+```bash
+npm start
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+The app will be available at `http://localhost:3000`
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## 🌐 Deployment
 
-### `npm run eject`
+### Vercel (Recommended)
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Set environment variable: `REACT_APP_API_URL` to your backend URL
+4. Deploy automatically
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Environment Variables
+- `REACT_APP_API_URL`: Backend API URL (required for production)
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## 📊 Features Overview
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Dashboard
+- **Budget vs Expenses Chart**: Visual comparison of monthly budget vs actual spending
+- **Category Breakdown**: Donut chart showing expense distribution by category
+- **Spending Trends**: Line chart displaying spending patterns over time
+- **Quick Stats**: Total income, expenses, and remaining budget
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Transactions
+- **Add Transactions**: Quick form to add income/expense transactions
+- **Advanced Filtering**: Filter by type, category, date range, and amount
+- **Edit/Delete**: Update or remove transactions
+- **Pagination**: Handle large datasets efficiently
 
-## Learn More
+### Authentication
+- **Secure Login**: JWT-based authentication
+- **User Registration**: Create new accounts
+- **Session Management**: Automatic token handling
+- **Logout**: Secure session termination
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 🔧 API Integration
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+The frontend connects to the backend API through the `api.js` service:
 
-### Code Splitting
+```javascript
+// Example API call
+import api from '../services/api';
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+const response = await api.get('/transactions');
+```
 
-### Analyzing the Bundle Size
+### API Endpoints Used
+- `POST /api/auth/login` - User authentication
+- `POST /api/auth/register` - User registration
+- `GET /api/transactions` - Fetch transactions
+- `POST /api/transactions` - Add transaction
+- `PUT /api/transactions/:id` - Update transaction
+- `DELETE /api/transactions/:id` - Delete transaction
+- `GET /api/budget/summary` - Budget overview
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## 🎨 Design System
 
-### Making a Progressive Web App
+### Color Palette
+- Primary: `#5563DE` (Indigo)
+- Success: `#10b981` (Green)
+- Danger: `#ef4444` (Red)
+- Background: `#f9fafb` (Light Gray)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Responsive Breakpoints
+- Desktop: `1024px+`
+- Tablet: `768px - 1023px`
+- Mobile: `320px - 767px`
 
-### Advanced Configuration
+## 🚀 Performance Optimizations
+- Lazy loading of components
+- Optimized D3 chart rendering
+- Efficient state management
+- Minimal bundle size
+- Responsive image handling
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## 🔒 Security Features
+- JWT token authentication
+- CORS configuration
+- Secure API communication
+- Input validation
+- XSS protection
 
-### Deployment
+## 🤝 Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## 📝 License
+This project is licensed under the MIT License.
 
-### `npm run build` fails to minify
+## 🆘 Support
+For issues and questions:
+- Create an issue on GitHub
+- Check the documentation
+- Review the API endpoints
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+---
+
+**Backend Repository**: [budget-tracker-backend](https://github.com/gautamyash/budget-tracker-backend)
+
+**Live App**: [https://budget-tracker-frontend-puce.vercel.app](https://budget-tracker-frontend-puce.vercel.app)
