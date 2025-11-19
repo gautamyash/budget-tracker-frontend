@@ -15,10 +15,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const API_URL =
-        process.env.REACT_APP_API_URL || "http://localhost:5000/api/auth/register";
-
-      const res = await api.post(API_URL, { name, email, password });
+      const res = await api.post("/auth/register", { name, email, password });
 
       alert("Registration successful! Please login.");
       window.location.href = "/login";

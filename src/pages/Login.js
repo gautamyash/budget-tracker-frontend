@@ -14,11 +14,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // ✅ Full backend URL (you can move it to .env later)
-      const API_URL =
-        process.env.REACT_APP_API_URL || "http://localhost:5000/api/auth/login";
-
-      const res = await api.post(API_URL, { email, password });
+      const res = await api.post("/auth/login", { email, password });
 
       localStorage.setItem("token", res.data.token);
       alert("Login successful!");
