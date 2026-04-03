@@ -1,40 +1,80 @@
-import axios from "axios";
+const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
 
-// In production, use relative path to /api (handled by Vercel's routing)
-// In development, use the local backend server
-const baseURL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+function getToken() {
+  return localStorage.getItem("token");
+}
 
-const instance = axios.create({
-  baseURL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  withCredentials: true,
-});
+function authHeaders() {
+  const token = getToken();
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
 
-// Add request interceptor to include auth token
-instance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Add response interceptor to handle errors
-instance.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized
-      localStorage.removeItem("token");
-      window.location.href = "/login";
-    }
-    return Promise.reject(error);
+async function handleResponse(res) {
+  if (res.status === 401) {
+    localStorage.removeItem("token");
+    window.location.href = "/login";
+    return;
   }
-);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.detail || data.message || "Request failed");
+    err.data = data;
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
 
-export default instance;
+const api = {
+  get(path) {
+    return fetch(`${BASE_URL}${path}`, {
+      method: "GET",
+      headers: authHeaders(),
+    }).then(handleResponse);
+  },
+
+  post(path, body) {
+    return fetch(`${BASE_URL}${path}`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+    }).then(handleResponse);
+  },
+
+  put(path, body) {
+    return fetch(`${BASE_URL}${path}`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+    }).then(handleResponse);
+  },
+
+  delete(path) {
+    return fetch(`${BASE_URL}${path}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    }).then((res) => {
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+        return;
+      }
+      if (!res.ok) {
+        throw new Error("Delete failed");
+      }
+      return;
+    });
+  },
+
+  login(username, password) {
+    return fetch(`${BASE_URL}/token/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    }).then(handleResponse);
+  },
+};
+
+export default api;

@@ -1,569 +1,503 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
 import api from "../services/api";
-import "../styles/transactions.css";
+import { 
+  Plus, 
+  Search, 
+  Filter, 
+  Trash2, 
+  Edit2, 
+  ChevronLeft, 
+  ChevronRight, 
+  Download, 
+  X,
+  Check,
+  Calendar,
+  DollarSign,
+  Tag
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 1,
-  });
-  
-  // Form state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 10;
+
+  const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState({
     type: "expense",
     category: "",
     amount: "",
     description: "",
-    date: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD
+    date: new Date().toISOString().split("T")[0],
   });
-  
-  // Filter state
+
   const [filters, setFilters] = useState({
     type: "",
     category: "",
-    startDate: '',
-    endDate: '',
-    minAmount: "",
-    maxAmount: "",
+    start_date: "",
+    end_date: "",
+    min_amount: "",
+    max_amount: "",
   });
 
-  // Edit state
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({
     type: "expense",
     category: "",
     amount: "",
     description: "",
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split("T")[0],
   });
 
-  // Fetch transactions with filters and pagination
-  const fetchTransactions = async (page = 1) => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams({
-        page,
-        limit: pagination.limit,
-        ...(filters.type && { type: filters.type }),
-        ...(filters.category && { category: filters.category }),
-        ...(filters.startDate && { startDate: filters.startDate }),
-        ...(filters.endDate && { endDate: filters.endDate }),
-        ...(filters.minAmount && { minAmount: filters.minAmount }),
-        ...(filters.maxAmount && { maxAmount: filters.maxAmount }),
-      });
-      
-      const res = await api.get(`/transactions?${params}`);
-      setTransactions(res.data.data);
-      setPagination({
-        ...pagination,
-        page,
-        total: res.data.pagination.total,
-        totalPages: res.data.pagination.totalPages,
-      });
-    } catch (err) {
-      console.error("Error fetching transactions", err);
-      setError("Failed to load transactions.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const buildQuery = useCallback(
+    (page) => {
+      const params = new URLSearchParams({ page, page_size: PAGE_SIZE });
+      if (filters.type) params.append("type", filters.type);
+      if (filters.category) params.append("category", filters.category);
+      if (filters.start_date) params.append("start_date", filters.start_date);
+      if (filters.end_date) params.append("end_date", filters.end_date);
+      if (filters.min_amount) params.append("min_amount", filters.min_amount);
+      if (filters.max_amount) params.append("max_amount", filters.max_amount);
+      return params.toString();
+    },
+    [filters]
+  );
 
-  // Fetch categories
+  const fetchTransactions = useCallback(
+    async (page = 1) => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await api.get(`/transactions/?${buildQuery(page)}`);
+        const results = Array.isArray(data) ? data : data.results || [];
+        const count = data.count || results.length;
+        setTransactions(results);
+        setTotalCount(count);
+        setTotalPages(Math.ceil(count / PAGE_SIZE) || 1);
+        setCurrentPage(page);
+      } catch {
+        setError("Failed to load transactions.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [buildQuery]
+  );
+
   const fetchCategories = async () => {
     try {
-      const res = await api.get("/transactions/categories");
-      setCategories(res.data);
-    } catch (err) {
-      console.error("Error fetching categories", err);
+      const data = await api.get("/categories/");
+      const cats = Array.isArray(data) ? data : data.results || [];
+      setCategories(cats);
+    } catch {
+      setCategories([]);
     }
   };
 
-  // Initial data load
   useEffect(() => {
-    fetchTransactions();
     fetchCategories();
-  }, [filters]);
+  }, []);
 
-  // Handle filter changes
+  useEffect(() => {
+    fetchTransactions(1);
+  }, [filters, fetchTransactions]);
+
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle date input changes
-  const handleDateChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // Reset all filters
   const resetFilters = () => {
-    setFilters({
-      type: "",
-      category: "",
-      startDate: null,
-      endDate: null,
-      minAmount: "",
-      maxAmount: "",
-    });
-  };
-
-  // Handle pagination
-  const handlePageChange = (page) => {
-    if (page >= 1 && page <= pagination.totalPages) {
-      fetchTransactions(page);
-    }
+    setFilters({ type: "", category: "", start_date: "", end_date: "", min_amount: "", max_amount: "" });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.category) {
+      setError("Please select a category.");
+      return;
+    }
     setError("");
     try {
-      await api.post("/transactions", form);
-      setForm({ 
-        type: "expense", 
-        category: "", 
-        amount: "", 
-        description: "",
-        date: new Date() 
-      });
-      fetchTransactions();
+      const payload = {
+        type: form.type,
+        amount: parseFloat(form.amount),
+        description: form.description,
+        date: form.date,
+        category: parseInt(form.category)
+      };
+      await api.post("/transactions/", payload);
+      setForm({ type: "expense", category: "", amount: "", description: "", date: new Date().toISOString().split("T")[0] });
+      setShowAddForm(false);
+      fetchTransactions(1);
     } catch (err) {
-      console.error("Error adding transaction", err);
-      setError("Failed to add transaction.");
+      const msg = err.data?.detail || "Failed to add transaction.";
+      setError(msg);
+    }
+  };
+
+  const [newCatName, setNewCatName] = useState("");
+  const handleAddCategory = async (type) => {
+    if (!newCatName) return;
+    try {
+      await api.post("/categories/", { name: newCatName, type });
+      setNewCatName("");
+      fetchCategories();
+    } catch {
+      setError("Failed to add category.");
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this transaction?")) {
-      return;
-    }
+    if (!window.confirm("Delete this transaction?")) return;
     try {
-      await api.delete(`/transactions/${id}`);
-      fetchTransactions();
-    } catch (err) {
-      console.error("Error deleting transaction", err);
+      await api.delete(`/transactions/${id}/`);
+      fetchTransactions(currentPage);
+    } catch {
       setError("Failed to delete transaction.");
     }
   };
 
-  const handleEdit = (transaction) => {
-    setEditingId(transaction._id);
+  const startEdit = (t) => {
+    setEditingId(t.id);
     setEditForm({
-      type: transaction.type,
-      category: transaction.category,
-      amount: transaction.amount,
-      description: transaction.description,
-      date: new Date(transaction.date).toISOString().split('T')[0],
+      type: t.type,
+      category: t.category || "",
+      amount: t.amount,
+      description: t.description || "",
+      date: t.date ? t.date.split("T")[0] : "",
     });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     setError("");
     try {
-      await api.put(`/transactions/${editingId}`, editForm);
+      const payload = {
+        type: editForm.type,
+        amount: parseFloat(editForm.amount),
+        description: editForm.description,
+        date: editForm.date,
+      };
+      if (editForm.category) payload.category = parseInt(editForm.category) || editForm.category;
+      await api.put(`/transactions/${editingId}/`, payload);
       setEditingId(null);
-      setEditForm({
-        type: "expense",
-        category: "",
-        amount: "",
-        description: "",
-        date: new Date().toISOString().split('T')[0],
-      });
-      fetchTransactions();
-    } catch (err) {
-      console.error("Error updating transaction", err);
+      fetchTransactions(currentPage);
+    } catch {
       setError("Failed to update transaction.");
     }
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditForm({
-      type: "expense",
-      category: "",
-      amount: "",
-      description: "",
-      date: new Date().toISOString().split('T')[0],
-    });
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    window.location.href = "/login";
-  };
-
   return (
-    <div style={{ maxWidth: 700, margin: "40px auto", textAlign: "center" }}>
-      {/* Navigation Bar */}
-      <div style={{ marginBottom: 20 }}>
-        <Link to="/" style={{ marginRight: 10 }}>
-          Dashboard
-        </Link>
-        <Link to="/transactions" style={{ marginRight: 10 }}>
-          Transactions
-        </Link>
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-
-      <h2>Manage Transactions</h2>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      {/* 🔹 Add Transaction Form */}
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          marginBottom: 20,
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          gap: "8px",
-        }}
-      >
-        <select
-          value={form.type}
-          onChange={(e) => setForm({ ...form, type: e.target.value })}
-        >
-          <option value="income">Income</option>
-          <option value="expense">Expense</option>
-        </select>
-
-        <input
-          type="date"
-          name="date"
-          value={form.date}
-          onChange={(e) => setForm({ ...form, date: e.target.value })}
-          max={new Date().toISOString().split('T')[0]}
-        />
-        <input
-          placeholder="Category"
-          value={form.category}
-          onChange={(e) => setForm({ ...form, category: e.target.value })}
-          required
-        />
-        <input
-          type="number"
-          placeholder="Amount"
-          value={form.amount}
-          onChange={(e) => setForm({ ...form, amount: e.target.value })}
-          required
-        />
-        <input
-          placeholder="Description"
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-        />
-        <button type="submit">Add</button>
-      </form>
-
-      {/* 🔹 Filter Section */}
-      <div
-        style={{
-          marginBottom: 20,
-          padding: "15px",
-          border: "1px solid #ddd",
-          borderRadius: 8,
-          background: "#f9f9f9",
-        }}
-      >
-        <h3 style={{ marginBottom: 10 }}>Filter Transactions</h3>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "10px",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <select
-            name="type"
-            value={filters.type}
-            onChange={handleFilterChange}
-            style={{ padding: "6px", borderRadius: 4 }}
+    <div className="animate-fade-in">
+      <header style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <h1 style={{ fontSize: '1.875rem', marginBottom: '8px' }}>Transactions</h1>
+          <p style={{ color: '#64748b' }}>Manage and track every dollar with precision.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className="btn-primary" 
+            onClick={() => setShowAddForm(!showAddForm)}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px' }}
           >
-            <option value="">All Types</option>
-            <option value="income">Income</option>
-            <option value="expense">Expense</option>
-          </select>
-
-          <select
-            name="category"
-            value={filters.category}
-            onChange={handleFilterChange}
-            style={{ padding: "6px", borderRadius: 4 }}
-          >
-            <option value="">All Categories</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="date"
-            name="startDate"
-            placeholder="Start Date"
-            value={filters.startDate}
-            onChange={handleDateChange}
-            style={{ padding: "6px", borderRadius: 4 }}
-          />
-
-          <input
-            type="date"
-            name="endDate"
-            placeholder="End Date"
-            value={filters.endDate}
-            onChange={handleDateChange}
-            style={{ padding: "6px", borderRadius: 4 }}
-          />
-
-          <input
-            type="number"
-            name="minAmount"
-            placeholder="Min Amount"
-            value={filters.minAmount}
-            onChange={handleFilterChange}
-            style={{ padding: "6px", borderRadius: 4, width: "100px" }}
-          />
-
-          <input
-            type="number"
-            name="maxAmount"
-            placeholder="Max Amount"
-            value={filters.maxAmount}
-            onChange={handleFilterChange}
-            style={{ padding: "6px", borderRadius: 4, width: "100px" }}
-          />
-
-          <button
-            onClick={resetFilters}
-            style={{
-              padding: "6px 12px",
-              background: "#6c757d",
-              color: "#fff",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer",
-            }}
-          >
-            Reset Filters
+            {showAddForm ? <X size={20} /> : <Plus size={20} />}
+            {showAddForm ? "Cancel" : "Add Transaction"}
           </button>
+        </div>
+      </header>
+
+      {error && <div style={{ padding: '16px', backgroundColor: '#fef2f2', color: '#dc2626', borderRadius: '12px', marginBottom: '24px', border: '1px solid #fee2e2', fontSize: '0.875rem' }}>{error}</div>}
+
+      <AnimatePresence>
+        {showAddForm && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+            animate={{ height: 'auto', opacity: 1, marginBottom: 32 }}
+            exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px' }}>
+              <div className="card" style={{ border: '2px solid #6366f1' }}>
+                <h3 style={{ fontSize: '1rem', marginBottom: '20px' }}>New Transaction</h3>
+                <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>TYPE</label>
+                    <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                      <option value="expense">Expense</option>
+                      <option value="income">Income</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>CATEGORY</label>
+                    <select required value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                      <option value="">Select Category</option>
+                      {categories.filter(c => c.type === form.type).map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>DATE</label>
+                    <input type="date" value={form.date} max={new Date().toISOString().split("T")[0]} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>AMOUNT ($)</label>
+                    <input type="number" placeholder="0.00" value={form.amount} min="0.01" step="0.01" required onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>DESCRIPTION</label>
+                    <input placeholder="What was this for?" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                    <button type="submit" className="btn-primary" style={{ padding: '10px 32px' }}>Save Transaction</button>
+                  </div>
+                </form>
+              </div>
+
+              <div className="card" style={{ border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                <h3 style={{ fontSize: '0.875rem', marginBottom: '16px', color: '#475569' }}>Quick Add Category</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input 
+                    placeholder="Category Name" 
+                    value={newCatName} 
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    style={{ backgroundColor: 'white' }} 
+                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={() => handleAddCategory('expense')}
+                      style={{ flex: 1, padding: '8px', fontSize: '0.75rem', fontWeight: 600, borderRadius: '8px', border: '1px solid #ef4444', color: '#ef4444', backgroundColor: 'transparent' }}
+                    >
+                      + Expense
+                    </button>
+                    <button 
+                      onClick={() => handleAddCategory('income')}
+                      style={{ flex: 1, padding: '8px', fontSize: '0.75rem', fontWeight: 600, borderRadius: '8px', border: '1px solid #10b981', color: '#10b981', backgroundColor: 'transparent' }}
+                    >
+                      + Income
+                    </button>
+                  </div>
+                  <p style={{ fontSize: '0.7rem', color: '#94a3b8', textAlign: 'center' }}>Create "Salary", "Food", etc. first.</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="card" style={{ marginBottom: '32px', padding: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b' }}>
+            <Filter size={18} />
+            <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Filters</h3>
+          </div>
+          <button onClick={resetFilters} style={{ fontSize: '0.8125rem', color: '#6366f1', fontWeight: 600, background: 'none' }}>Reset Filters</button>
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase' }}>TYPE</label>
+            <select name="type" value={filters.type} onChange={handleFilterChange}>
+              <option value="">All Types</option>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase' }}>CATEGORY</label>
+            <select name="category" value={filters.category} onChange={handleFilterChange}>
+              <option value="">All Categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase' }}>FROM DATE</label>
+            <input type="date" name="start_date" value={filters.start_date} onChange={handleFilterChange} />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase' }}>TO DATE</label>
+            <input type="date" name="end_date" value={filters.end_date} onChange={handleFilterChange} />
+          </div>
+          
+          <div>
+            <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase' }}>MIN ($)</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.875rem' }}>$</span>
+              <input type="number" name="min_amount" placeholder="0.00" value={filters.min_amount} onChange={handleFilterChange} style={{ paddingLeft: '24px' }} />
+            </div>
+          </div>
+          
+          <div>
+            <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase' }}>MAX ($)</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '0.875rem' }}>$</span>
+              <input type="number" name="max_amount" placeholder="0.00" value={filters.max_amount} onChange={handleFilterChange} style={{ paddingLeft: '24px' }} />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 🔹 Transactions Table */}
-      {loading ? (
-        <p>Loading...</p>
-      ) : transactions.length === 0 ? (
-        <p>No transactions found.</p>
-      ) : (
-        <>
-          <div style={{ marginBottom: 10, textAlign: "left" }}>
-            <strong>Total: {pagination.total} transactions</strong>
+      <div className="table-container">
+        {loading ? (
+          <div style={{ padding: '60px', textAlign: 'center' }}>
+            <div className="animate-spin" style={{ width: '32px', height: '32px', border: '3px solid #f3f4f6', borderTopColor: '#6366f1', borderRadius: '50%', margin: '0 auto' }}></div>
           </div>
-          <table
-            width="100%"
-            border="1"
-            cellPadding="8"
-            style={{ borderCollapse: "collapse", marginTop: 10 }}
-          >
-            <thead>
-              <tr style={{ background: "#f2f2f2" }}>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Category</th>
-                <th>Amount ($)</th>
-                <th>Description</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((t) => (
-                editingId === t._id ? (
-                  <tr key={t._id} style={{ background: "#fffacd" }}>
-                    <td colSpan="6">
-                      <form
-                        onSubmit={handleUpdate}
-                        style={{
-                          display: "flex",
-                          flexWrap: "wrap",
-                          gap: "8px",
-                          justifyContent: "center",
-                          padding: "10px",
-                        }}
-                      >
-                        <input
-                          type="date"
-                          value={editForm.date}
-                          onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                          required
-                          style={{ padding: "6px" }}
-                        />
-                        <select
-                          value={editForm.type}
-                          onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
-                          style={{ padding: "6px" }}
-                        >
-                          <option value="income">Income</option>
-                          <option value="expense">Expense</option>
-                        </select>
-                        <input
-                          placeholder="Category"
-                          value={editForm.category}
-                          onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                          required
-                          style={{ padding: "6px" }}
-                        />
-                        <input
-                          type="number"
-                          placeholder="Amount"
-                          value={editForm.amount}
-                          onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
-                          required
-                          style={{ padding: "6px" }}
-                        />
-                        <input
-                          placeholder="Description"
-                          value={editForm.description}
-                          onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                          style={{ padding: "6px" }}
-                        />
-                        <button
-                          type="submit"
-                          style={{
-                            padding: "6px 12px",
-                            background: "#28a745",
-                            color: "#fff",
-                            border: "none",
-                            cursor: "pointer",
-                            borderRadius: 4,
-                          }}
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          style={{
-                            padding: "6px 12px",
-                            background: "#6c757d",
-                            color: "#fff",
-                            border: "none",
-                            cursor: "pointer",
-                            borderRadius: 4,
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={t._id}>
-                    <td>{new Date(t.date).toLocaleDateString()}</td>
-                    <td style={{ textTransform: "capitalize" }}>{t.type}</td>
-                    <td>{t.category}</td>
-                    <td style={{ color: t.type === "income" ? "green" : "red" }}>
-                      ${Number(t.amount).toFixed(2)}
-                    </td>
-                    <td>{t.description}</td>
-                    <td>
-                      <button
-                        onClick={() => handleEdit(t)}
-                        style={{
-                          background: "#007bff",
-                          color: "#fff",
-                          border: "none",
-                          cursor: "pointer",
-                          padding: "4px 8px",
-                          marginRight: "5px",
-                          borderRadius: 4,
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(t._id)}
-                        style={{
-                          background: "#dc3545",
-                          color: "#fff",
-                          border: "none",
-                          cursor: "pointer",
-                          padding: "4px 8px",
-                          borderRadius: 4,
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                )
-              ))}
-            </tbody>
-          </table>
-
-          {/* 🔹 Pagination Controls */}
-          <div
-            style={{
-              marginTop: 20,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: "10px",
-            }}
-          >
-            <button
-              onClick={() => handlePageChange(pagination.page - 1)}
-              disabled={pagination.page === 1}
-              style={{
-                padding: "8px 16px",
-                background: pagination.page === 1 ? "#ccc" : "#007bff",
-                color: "#fff",
-                border: "none",
-                borderRadius: 4,
-                cursor: pagination.page === 1 ? "not-allowed" : "pointer",
-              }}
-            >
-              Previous
-            </button>
-
-            <span style={{ fontWeight: "bold" }}>
-              Page {pagination.page} of {pagination.totalPages}
-            </span>
-
-            <button
-              onClick={() => handlePageChange(pagination.page + 1)}
-              disabled={pagination.page === pagination.totalPages}
-              style={{
-                padding: "8px 16px",
-                background: pagination.page === pagination.totalPages ? "#ccc" : "#007bff",
-                color: "#fff",
-                border: "none",
-                borderRadius: 4,
-                cursor: pagination.page === pagination.totalPages ? "not-allowed" : "pointer",
-              }}
-            >
-              Next
-            </button>
+        ) : transactions.length === 0 ? (
+          <div style={{ padding: '80px 40px', textAlign: 'center', color: '#64748b' }}>
+            <Search size={48} style={{ margin: '0 auto 16px', opacity: 0.1 }} />
+            <p style={{ fontSize: '1.125rem', fontWeight: 500 }}>No transactions found</p>
+            <p style={{ fontSize: '0.875rem', marginTop: '4px' }}>Try adjusting your filters or add a new transaction.</p>
           </div>
-        </>
-      )}
+        ) : (
+          <>
+            <table>
+              <thead>
+                <tr>
+                  <th>DATE</th>
+                  <th>DESCRIPTION</th>
+                  <th>CATEGORY</th>
+                  <th>TYPE</th>
+                  <th style={{ textAlign: 'right' }}>AMOUNT</th>
+                  <th style={{ textAlign: 'center' }}>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((t) => (
+                  <tr key={t.id} style={{ backgroundColor: editingId === t.id ? '#f5f7ff' : 'transparent' }}>
+                    {editingId === t.id ? (
+                      <td colSpan="6" style={{ padding: '20px' }}>
+                        <form onSubmit={handleUpdate} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', alignItems: 'flex-end' }}>
+                          <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} required />
+                          <select value={editForm.type} onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}>
+                            <option value="expense">Expense</option>
+                            <option value="income">Income</option>
+                          </select>
+                          <select value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}>
+                            <option value="">Category</option>
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                          <input type="number" value={editForm.amount} step="0.01" required onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} />
+                          <input placeholder="Description" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button type="submit" style={{ backgroundColor: '#10b981', color: 'white', padding: '8px', borderRadius: '8px', flex: 1 }}><Check size={18} /></button>
+                            <button type="button" onClick={cancelEdit} style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '8px', borderRadius: '8px', flex: 1 }}><X size={18} /></button>
+                          </div>
+                        </form>
+                      </td>
+                    ) : (
+                      <>
+                        <td style={{ fontWeight: 600, color: '#1e293b' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ padding: '8px', borderRadius: '10px', backgroundColor: '#f8fafc', color: '#64748b' }}>
+                              <Calendar size={16} />
+                            </div>
+                            {t.date ? new Date(t.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : "—"}
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 500, color: '#1e293b' }}>{t.description || "—"}</div>
+                        </td>
+                        <td>
+                          <span style={{ 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            gap: '6px',
+                            backgroundColor: '#f1f5f9', 
+                            padding: '4px 10px', 
+                            borderRadius: '8px', 
+                            fontSize: '0.75rem', 
+                            fontWeight: 600, 
+                            color: '#475569' 
+                          }}>
+                            <Tag size={12} />
+                            {t.category_name || t.category || "General"}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ 
+                            color: t.type === "income" ? '#10b981' : '#ef4444',
+                            backgroundColor: t.type === "income" ? '#f0fdf4' : '#fef2f2',
+                            padding: '4px 10px', 
+                            borderRadius: '8px', 
+                            fontSize: '0.75rem', 
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.025em'
+                          }}>
+                            {t.type}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#1e293b', fontSize: '1rem' }}>
+                          <span style={{ color: t.type === 'income' ? '#10b981' : '#1e293b' }}>
+                            {t.type === "income" ? "+" : "-"}${parseFloat(t.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button onClick={() => startEdit(t)} style={{ padding: '8px', borderRadius: '8px', color: '#6366f1', backgroundColor: '#f5f7ff' }}>
+                              <Edit2 size={16} />
+                            </button>
+                            <button onClick={() => handleDelete(t.id)} style={{ padding: '8px', borderRadius: '8px', color: '#ef4444', backgroundColor: '#fef2f2' }}>
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ padding: '20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p style={{ fontSize: '0.875rem', color: '#64748b' }}>
+                Showing <strong>{(currentPage - 1) * PAGE_SIZE + 1}</strong> to <strong>{Math.min(currentPage * PAGE_SIZE, totalCount)}</strong> of <strong>{totalCount}</strong> transactions
+              </p>
+              
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  onClick={() => fetchTransactions(currentPage - 1)} 
+                  disabled={currentPage === 1}
+                  className="card"
+                  style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '4px', opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                >
+                  <ChevronLeft size={18} />
+                  Prev
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', fontSize: '0.875rem', fontWeight: 600, color: '#1e293b' }}>
+                  {currentPage} / {totalPages}
+                </div>
+                <button 
+                  onClick={() => fetchTransactions(currentPage + 1)} 
+                  disabled={currentPage === totalPages}
+                  className="card"
+                  style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '4px', opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+                >
+                  Next
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

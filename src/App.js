@@ -1,26 +1,37 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
+import Layout from "./components/Layout";
+
+function PrivateRoute({ children }) {
+  const token = localStorage.getItem("token");
+  return token ? <Layout>{children}</Layout> : <Navigate to="/login" replace />;
+}
 
 function App() {
-  const token = localStorage.getItem("token");
-
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
         <Route
           path="/"
-          element={token ? <Dashboard /> : <Navigate to="/login" />}
+          element={
+            <PrivateRoute>
+              <Dashboard />
+            </PrivateRoute>
+          }
         />
         <Route
           path="/transactions"
-          element={token ? <Transactions /> : <Navigate to="/login" />}
+          element={
+            <PrivateRoute>
+              <Transactions />
+            </PrivateRoute>
+          }
         />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
