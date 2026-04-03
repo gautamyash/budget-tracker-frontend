@@ -14,16 +14,10 @@ function authHeaders() {
 }
 
 async function handleResponse(res) {
-  if (res.status === 401) {
-    localStorage.removeItem("token");
-    window.location.href = "/login";
-    return;
-  }
-
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    const err = new Error(data.detail || data.message || "Request failed");
+    const err = new Error(data.detail || data.message || `HTTP ${res.status}`);
     err.data = data;
     err.status = res.status;
     throw err;
@@ -37,7 +31,14 @@ const api = {
     return fetch(`${BASE_URL}${path}`, {
       method: "GET",
       headers: authHeaders(),
-    }).then(handleResponse);
+    })
+      .then(handleResponse)
+      .catch((err) => {
+        if (err.status === 401) {
+          window.location.href = "/login";
+        }
+        throw err;
+      });
   },
 
   post(path, body) {
@@ -45,7 +46,14 @@ const api = {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify(body),
-    }).then(handleResponse);
+    })
+      .then(handleResponse)
+      .catch((err) => {
+        if (err.status === 401) {
+          window.location.href = "/login";
+        }
+        throw err;
+      });
   },
 
   put(path, body) {
@@ -53,7 +61,14 @@ const api = {
       method: "PUT",
       headers: authHeaders(),
       body: JSON.stringify(body),
-    }).then(handleResponse);
+    })
+      .then(handleResponse)
+      .catch((err) => {
+        if (err.status === 401) {
+          window.location.href = "/login";
+        }
+        throw err;
+      });
   },
 
   delete(path) {
@@ -74,11 +89,19 @@ const api = {
   },
 
   login(username, password) {
-    return fetch(`${BASE_URL}/token/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    }).then(handleResponse);
+    return Promise.race([
+      fetch(`${BASE_URL}/token/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      }).then(handleResponse),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Login timeout - server not responding")),
+          15000,
+        ),
+      ),
+    ]);
   },
 };
 
