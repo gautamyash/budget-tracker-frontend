@@ -1,4 +1,6 @@
-const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
+const BASE_URL =
+  process.env.REACT_APP_API_URL ||
+  "https://budget-tracker-backend-wznx.onrender.com/api";
 
 function getToken() {
   return localStorage.getItem("token");
@@ -17,13 +19,16 @@ async function handleResponse(res) {
     window.location.href = "/login";
     return;
   }
+
   const data = await res.json().catch(() => ({}));
+
   if (!res.ok) {
     const err = new Error(data.detail || data.message || "Request failed");
     err.data = data;
     err.status = res.status;
     throw err;
   }
+
   return data;
 }
 
